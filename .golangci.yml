@@ -1,0 +1,67 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - forbidigo
+    - gosec
+    - misspell
+    - nilerr
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    forbidigo:
+      forbid:
+        # Money is int64 minor units, no floats.
+        - pattern: ^float(32|64)$
+          msg: "money is int64 minor units, not float"
+        - pattern: ^fmt\.Print(|f|ln)$
+          msg: "use log/slog, not fmt.Print"
+      analyze-types: true
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    revive:
+      rules:
+        - name: exported
+        - name: error-return
+        - name: error-strings
+        - name: context-as-argument
+        - name: indent-error-flow
+
+  exclusions:
+    rules:
+      # Tests use dummy passwords and skip cleanup error checks on temporary test databases.
+      - path: test/integration/
+        linters:
+          - errcheck
+          - gosec
+      # Skip auto-generated files created by the protobuf tool.
+      - path: \.pb\.go$
+        linters:
+          - revive
+          - unconvert
+          - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ViseonDev/ledger-core
