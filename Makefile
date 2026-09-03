@@ -1,6 +1,7 @@
 SHELL 		:= /bin/bash
 BUILD_DIR   := build
 COMPOSE     := docker compose
+RESULTS_DIR := $(BUILD_DIR)/test-results
 
 .PHONY: help
 help: ## Show this help
@@ -29,3 +30,24 @@ clean: ## Remove volumes and build artefacts
 	$(COMPOSE) down -v --remove-orphans
 	rm -rf $(BUILD_DIR)
 	go clean -testcache
+
+
+.PHONY: test
+test: test-unit test-int ## Full suite
+
+.PHONY: test-unit
+test-unit: $(RESULTS_DIR) ## Fast, no I/O
+	go tool gotestsum \
+		--junitfile $(RESULTS_DIR)/unit.xml \
+		--format testname \
+		-- -race -short ./internal/... ./cmd/...
+
+.PHONY: test-int
+test-int: $(RESULTS_DIR) ## Integration, real dependencies
+	go tool gotestsum \
+		--junitfile $(RESULTS_DIR)/integration.xml \
+		--format testname \
+		-- -race -timeout 10m ./test/integration/...
+
+$(RESULTS_DIR):
+	@mkdir -p $(RESULTS_DIR)
