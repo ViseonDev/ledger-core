@@ -135,4 +135,3 @@ func TestSeededWalletsAreNeverNegative(t *testing.T) {
 		assert.False(t, normal.IsNegative(), "wallet %s is overdrawn at %v", wallet.Code(), normal)
 	}
 }
-

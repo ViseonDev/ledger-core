@@ -1,0 +1,17 @@
+# Hot reload for local development. Only used by docker-compose.dev.yml.
+root = "."
+tmp_dir = "build/tmp"
+
+[build]
+  cmd = "go build -o ./build/tmp/ledgerd ./cmd/ledgerd"
+  bin = "./build/tmp/ledgerd"
+  include_ext = ["go", "sql"]
+  exclude_dir = ["build", "test", ".git", "proto"]
+  exclude_regex = ["_test\\.go"]
+  # Wait for the filesystem to settle before rebuilding.
+  delay = 300
+  stop_on_error = true
+
+[log]
+  time = true
+

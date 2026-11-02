@@ -1,0 +1,28 @@
+# Version control
+.git
+.gitignore
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Build artefacts
+build/
+bin/
+*.test
+*.out
+
+# Documentation and tutorials
+*.md
+
+# Editor and OS
+.idea/
+.vscode/
+.DS_Store
+
+# Docker files
+Dockerfile
+docker-compose*.yml
+.dockerignore
+

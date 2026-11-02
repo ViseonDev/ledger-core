@@ -62,4 +62,3 @@ func TestDefaultConfigIsSensible(t *testing.T) {
 		t.Error("Anchor should be truncated to a day boundary so re-runs on one day agree")
 	}
 }
-

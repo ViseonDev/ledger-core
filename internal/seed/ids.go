@@ -27,4 +27,3 @@ func transactionID(name string) (ledger.TransactionID, error) {
 
 func customerRef(n int) string { return fmt.Sprintf("cus_demo_%04d", n) }
 func merchantRef(n int) string { return fmt.Sprintf("mer_demo_%02d", n) }
-
