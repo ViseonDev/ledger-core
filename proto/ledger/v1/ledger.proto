@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package ledger.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/ViseonDev/ledger-core/proto/ledger/v1;ledgerv1";
+
+// LedgerService exposes the double-entry ledger.
+//
+// Every mutating RPC requires an "idempotency-key" entry in the request
+// metadata, exactly as the REST API requires the Idempotency-Key header.
+service LedgerService {
+  rpc OpenAccount(OpenAccountRequest) returns (Account);
+  rpc GetAccount(GetAccountRequest) returns (Account);
+  rpc GetBalance(GetBalanceRequest) returns (Balance);
+  rpc PostTransaction(PostTransactionRequest) returns (Transaction);
+  rpc GetTransaction(GetTransactionRequest) returns (Transaction);
+  rpc ReverseTransaction(ReverseTransactionRequest) returns (Transaction);
+}
+
+// AccountType classifies an account and determines which direction increases
+// it.
+//
+// The zero value is UNSPECIFIED rather than a real type. Protobuf gives every
+// enum a zero value and a field that was never set decodes to it, so reserving
+// zero for "absent" is the only way to distinguish "the client sent ASSET" from
+// "the client sent nothing". This is the same reasoning as Direction(0) being
+// invalid in the domain.
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_ASSET = 1;
+  ACCOUNT_TYPE_LIABILITY = 2;
+  ACCOUNT_TYPE_EQUITY = 3;
+  ACCOUNT_TYPE_REVENUE = 4;
+  ACCOUNT_TYPE_EXPENSE = 5;
+}
+
+enum AccountStatus {
+  ACCOUNT_STATUS_UNSPECIFIED = 0;
+  ACCOUNT_STATUS_ACTIVE = 1;
+  ACCOUNT_STATUS_CLOSED = 2;
+}
+
+enum Direction {
+  DIRECTION_UNSPECIFIED = 0;
+  DIRECTION_DEBIT = 1;
+  DIRECTION_CREDIT = 2;
+}
+
+// Account is a bucket in the chart of accounts.
+message Account {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  AccountType type = 4;
+  // ISO 4217 alphabetic code.
+  string currency = 5;
+  bool allow_negative = 6;
+  AccountStatus status = 7;
+}
+
+// Entry is one debit or credit against one account.
+//
+// The amount is a count of the currency's minor unit, as a signed 64-bit
+// integer, and it is always positive. The direction carries the sign.
+//
+// There is deliberately no google.type.Money here. That type carries `units`
+// and `nanos`, and the existence of a sub-unit field invites callers to think
+// in fractional cents. A ledger has no fractional cents.
+message Entry {
+  string account_id = 1;
+  string account_code = 2;
+  Direction direction = 3;
+  int64 amount = 4;
+}
+
+// Transaction is a balanced set of entries.
+message Transaction {
+  string id = 1;
+  string reference = 2;
+  string currency = 3;
+  google.protobuf.Timestamp posted_at = 4;
+  // Set when this transaction reverses another.
+  string reversal_of = 5;
+  map<string, string> metadata = 6;
+  repeated Entry entries = 7;
+}
+
+// Balance is an account's position.
+message Balance {
+  string account_id = 1;
+  string currency = 2;
+  int64 debits = 3;
+  int64 credits = 4;
+  // Net amount in the account's normal direction. Positive always means the
+  // account holds what it should, whatever its type.
+  int64 balance = 5;
+  // True when recomputed from the journal rather than read from the cache.
+  bool authoritative = 6;
+}
+
+message OpenAccountRequest {
+  string code = 1;
+  string name = 2;
+  AccountType type = 3;
+  string currency = 4;
+  bool allow_negative = 5;
+}
+
+message GetAccountRequest {
+  string code = 1;
+}
+
+message GetBalanceRequest {
+  string account_id = 1;
+  // When true, recompute from the journal instead of reading the cache.
+  bool authoritative = 2;
+}
+
+message EntryInput {
+  string account_code = 1;
+  Direction direction = 2;
+  int64 amount = 3;
+}
+
+message PostTransactionRequest {
+  string reference = 1;
+  string currency = 2;
+  map<string, string> metadata = 3;
+  repeated EntryInput entries = 4;
+}
+
+message GetTransactionRequest {
+  string id = 1;
+}
+
+message ReverseTransactionRequest {
+  string transaction_id = 1;
+  string reason = 2;
+}

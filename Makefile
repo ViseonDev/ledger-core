@@ -25,6 +25,11 @@ lint: ## Run linters
 fmt: ## Run formatters
 	golangci-lint fmt ./...
 
+.PHONY: generate
+generate: ## Regenerate protobuf code
+	buf lint proto
+	buf generate proto
+
 .PHONY: clean
 clean: ## Remove volumes and build artefacts
 	$(COMPOSE) down -v --remove-orphans

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +15,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ViseonDev/ledger-core/internal/adapters/grpcapi"
 	"github.com/ViseonDev/ledger-core/internal/adapters/httpapi"
 	"github.com/ViseonDev/ledger-core/internal/adapters/postgres"
 	"github.com/ViseonDev/ledger-core/internal/adapters/uuidgen"
@@ -83,6 +85,8 @@ func run() error {
 		IdleTimeout:       120 * time.Second,
 	}
 
+	grpcServer := grpcapi.Register(logger, ledgerService)
+
 	group, groupCtx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
@@ -94,14 +98,46 @@ func run() error {
 	})
 
 	group.Go(func() error {
+		listener, listenErr := net.Listen("tcp", cfg.GRPCAddr)
+		if listenErr != nil {
+			return fmt.Errorf("listening on %s: %w", cfg.GRPCAddr, listenErr)
+		}
+
+		logger.Info("grpc server listening", slog.String("addr", cfg.GRPCAddr))
+		if serveErr := grpcServer.Serve(listener); serveErr != nil {
+			return fmt.Errorf("grpc server: %w", serveErr)
+		}
+		return nil
+	})
+
+	group.Go(func() error {
 		// groupCtx: if another component dies, shut down too.
 		<-groupCtx.Done()
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
 
-		logger.Info("shutting down", slog.Duration("grace", cfg.ShutdownTimeout))
+		logger.Info("shutting down http", slog.Duration("grace", cfg.ShutdownTimeout))
 		return httpServer.Shutdown(shutdownCtx)
+	})
+
+	group.Go(func() error {
+		<-groupCtx.Done()
+
+		// GracefulStop has no timeout, so add one.
+		stopped := make(chan struct{})
+		go func() {
+			grpcServer.GracefulStop()
+			close(stopped)
+		}()
+
+		select {
+		case <-stopped:
+		case <-time.After(cfg.ShutdownTimeout):
+			logger.Warn("grpc graceful stop timed out; forcing")
+			grpcServer.Stop()
+		}
+		return nil
 	})
 
 	if err := group.Wait(); err != nil {

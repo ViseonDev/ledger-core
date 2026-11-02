@@ -8,16 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ViseonDev/ledger-core/internal/adapters/httpapi"
 	"github.com/ViseonDev/ledger-core/internal/adapters/uuidgen"
 	"github.com/ViseonDev/ledger-core/internal/app"
 	"github.com/ViseonDev/ledger-core/internal/platform/clock"
-	"github.com/ViseonDev/ledger-core/internal/platform/observability"
 )
 
 // newAPI builds a full HTTP stack over a fresh database.
@@ -26,18 +23,9 @@ func newAPI(t *testing.T) *httptest.Server {
 
 	store := newTestDB(t)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
 	service := app.NewLedger(store, uuidgen.New(), clock.New(), logger)
-	server := httptest.NewServer(httpapi.NewServer(httpapi.Config{
-		Ledger:         service,
-		Logger:         logger,
-		Metrics:        observability.NewMetrics(),
-		RequestTimeout: 10 * time.Second,
-		Ready:          func() error { return store.Pool().Ping(t.Context()) },
-	}).Routes())
 
-	t.Cleanup(server.Close)
-	return server
+	return newAPIOver(t, service, store)
 }
 
 type apiResponse struct {
