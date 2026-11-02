@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.26.6'
+
+jobs:
+  lint:
+    name: Lint and verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+
+      - name: Verify generated code and go.mod are current
+        run: make verify
+
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Run unit tests
+        run: make test-unit
+
+      # Upload results even if unit tests failed.
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-results
+          path: build/test-results/
+          retention-days: 14
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Run integration tests
+        run: make test-int
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-test-results
+          path: build/test-results/
+          retention-days: 14
+
+  publish:
+    name: Publish results
+    runs-on: ubuntu-latest
+    needs: [unit, integration]
+    if: always()
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Download unit results
+        uses: actions/download-artifact@v8
+        with:
+          name: unit-test-results
+          path: build/test-results/
+        continue-on-error: true
+
+      - name: Download integration results
+        uses: actions/download-artifact@v8
+        with:
+          name: integration-test-results
+          path: build/test-results/
+        continue-on-error: true
+
+      - name: Publish to the Portfolio Hub
+        env:
+          HUB_URL: ${{ secrets.HUB_URL }}
+          HUB_TOKEN: ${{ secrets.LEDGER_HUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(build/test-results/*.xml)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "no JUnit files found; nothing to publish"
+            exit 0
+          fi
+          go run ./cmd/junitreport \
+            -project 01-ledger-core \
+            "${files[@]}"
+
