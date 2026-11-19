@@ -8,6 +8,7 @@ BUILD_DIR   := build
 RESULTS_DIR := $(BUILD_DIR)/test-results
 COMPOSE     := docker compose
 COMPOSE_DEV := docker compose -f docker-compose.yml -f docker-compose.dev.yml
+COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production
 
 .PHONY: help
 help: ## Show this help
@@ -23,6 +24,18 @@ up: .env ## Start everything and wait until healthy
 .PHONY: dev
 dev: .env ## Start with hot reload and a debugger port
 	$(COMPOSE_DEV) up --build
+
+.PHONY: prod-up
+prod-up: ## Start in production mode with Caddy and loopback isolation
+	$(COMPOSE_PROD) up -d --build --wait
+
+.PHONY: prod-down
+prod-down: ## Stop production containers
+	$(COMPOSE_PROD) down --remove-orphans
+
+.PHONY: backup
+backup: ## Run database backup and verify dump
+	./deploy/backup.sh
 
 .PHONY: down
 down: ## Stop and remove containers

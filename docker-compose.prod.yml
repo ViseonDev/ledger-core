@@ -1,0 +1,87 @@
+# Deployment overlay. Used together with the base file:
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d --build --wait
+
+services:
+  postgres:
+    # Loopback only, docker bypasses ufw otherwise.
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    command:
+      - postgres
+      # Tuning for a small VPS.
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - max_connections=60
+      # Log queries slower than 250ms.
+      - -c
+      - log_min_duration_statement=250
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/backups:/backups
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --save
+      - "60"
+      - "1"
+      - --appendonly
+      - "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  ledger:
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9090:9090"
+    environment:
+      LEDGER_LOG_FORMAT: json
+      LEDGER_POSTGRES_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      LEDGER_REDIS_ADDR: redis:6379
+      LEDGER_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      LEDGER_POSTGRES_MAX_CONNS: "20"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: json-file
+      options:
+        # Cap log size so the disk doesn't fill up.
+        max-size: "10m"
+        max-file: "5"
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+
+volumes:
+  postgres-data:
+  redis-data:
+  caddy-data:
+  caddy-config:
+  caddy-logs:

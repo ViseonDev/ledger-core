@@ -1,0 +1,16 @@
+# Local AWS emulation. Never used in deployment; this exists so the backup
+# upload path is exercised without an AWS account.
+
+services:
+  localstack:
+    image: localstack/localstack:4
+    ports:
+      - "127.0.0.1:4566:4566"
+    environment:
+      SERVICES: s3
+      DEBUG: "0"
+    volumes:
+      - localstack-data:/var/lib/localstack
+
+volumes:
+  localstack-data:

@@ -23,3 +23,7 @@ go.work.sum
 
 # MD folder dump
 /mdump/
+
+# Backups
+/deploy/backups/
+*.dump

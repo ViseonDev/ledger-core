@@ -1,0 +1,44 @@
+# Replace ledger.example.com with your domain. Caddy handles the Let's Encrypt cert.
+ledger.example.com {
+	encode zstd gzip
+
+	# JSON access logs.
+	log {
+		output file /var/log/caddy/ledger.log
+		format json
+	}
+
+	# Security headers. Short HSTS max-age for now.
+	header {
+		Strict-Transport-Security "max-age=604800"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Read-only endpoints are public (GET/HEAD only).
+	@readonly {
+		method GET HEAD
+		path /v1/* /healthz /readyz
+	}
+	handle @readonly {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# /metrics is not public.
+	@metrics path /metrics
+	handle @metrics {
+		respond "not found" 404
+	}
+
+	# Everything else needs basic auth.
+	handle {
+		basic_auth {
+			# Generate with: docker run --rm caddy:2.11.4-alpine caddy hash-password
+			# The value below is a bcrypt hash, not a password. Replace it.
+			demo $2a$14$REPLACE_THIS_WITH_A_REAL_BCRYPT_HASH
+		}
+		reverse_proxy 127.0.0.1:8080
+	}
+}

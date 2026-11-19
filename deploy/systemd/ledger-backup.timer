@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly ledger database backup
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+# Run on next boot if the machine was off at the scheduled time. Without this a
+# VPS that reboots overnight silently skips backups.
+Persistent=true
+# Spread the start by up to five minutes, so a fleet does not all dump at once.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

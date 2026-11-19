@@ -1,0 +1,43 @@
+groups:
+  - name: ledger
+    rules:
+      # COMPENSATION_FAILED needs a human: the unwind did not finish.
+      - alert: LedgerSagaCompensationFailed
+        expr: increase(ledger_postings_total{outcome="compensation_failed"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A payment saga could not be compensated"
+          description: >
+            A payment reached COMPENSATION_FAILED. Money has moved and the
+            automatic unwind did not finish. Find the payment with:
+            SELECT id, reference, last_error FROM payment_intents
+            WHERE status = 'COMPENSATION_FAILED';
+
+      - alert: LedgerBalanceDrift
+        expr: ledger_balance_drift_total > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A cached balance disagrees with the journal"
+          description: "Cached balance drifted from the journal. Run `ledgerctl reconcile` to identify the accounts."
+
+      - alert: LedgerHighErrorRate
+        expr: |
+          sum(rate(ledger_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(ledger_http_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 5% of requests are failing"
+
+      - alert: LedgerDown
+        expr: up{job="ledger"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The ledger is not being scraped"
