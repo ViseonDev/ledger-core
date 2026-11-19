@@ -121,4 +121,3 @@ func TestParseEmptySuite(t *testing.T) {
 		t.Errorf("totals = %+v, want all zero", summary.Totals)
 	}
 }
-
