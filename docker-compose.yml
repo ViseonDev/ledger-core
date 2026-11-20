@@ -13,10 +13,10 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       # pg_isready with -d checks that the target database is ready, avoiding startup races.
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ledger} -d ${POSTGRES_DB:-ledger}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ledger} -d ${POSTGRES_DB:-ledger}" ]
       interval: 2s
       timeout: 3s
       retries: 15
@@ -25,13 +25,13 @@ services:
   redis:
     image: redis:8.10-alpine
     restart: unless-stopped
-    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    command: [ "redis-server", "--save", "60", "1", "--appendonly", "no" ]
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 2s
       timeout: 3s
       retries: 15
@@ -60,7 +60,7 @@ services:
         condition: service_healthy
     healthcheck:
       # Built-in busybox wget is used instead of adding curl to the minimal runtime image.
-      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/healthz || exit 1"]
+      test: [ "CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/healthz || exit 1" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -68,11 +68,11 @@ services:
 
   # Operator commands: tools profile prevents running on normal compose up.
   ledgerctl:
-    profiles: ["tools"]
+    profiles: [ "tools" ]
     build:
       context: .
       target: runtime
-    entrypoint: ["/usr/local/bin/ledgerctl"]
+    entrypoint: [ "/usr/local/bin/ledgerctl" ]
     environment:
       LEDGER_LOG_LEVEL: ${LEDGER_LOG_LEVEL:-info}
       LEDGER_LOG_FORMAT: ${LEDGER_LOG_FORMAT:-text}
